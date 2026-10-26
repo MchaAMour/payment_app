@@ -6,6 +6,8 @@ It is a demo, not a production system: refunds, pay-outs, rate limiting and high
 
 | Doc | What it is |
 |---|---|
+| [`docs/ARCHITECTURE.md`](docs/ARCHITECTURE.md) | Components, data model, order lifecycle, failure handling |
+| [`docs/DECISIONS.md`](docs/DECISIONS.md) | Design decisions, trade-offs, what was left out, how it was verified |
 | [`docs/DEPLOY.md`](docs/DEPLOY.md) | Putting it on a server with HTTPS |
 
 ## What it does
