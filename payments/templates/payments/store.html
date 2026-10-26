@@ -1,0 +1,57 @@
+{% extends "payments/base.html" %}
+{% block title %}Shop{% endblock %}
+{% block page %}store{% endblock %}
+{% block content %}
+<section class="hero">
+  <span class="eyebrow">Spring court collection</span>
+  <h1>Gear up for your <em>next match</em>.</h1>
+  <p>Three essentials from brands players trust: a racket, shoes and a shirt. Pay securely with a test card.</p>
+</section>
+<section class="grid" id="products" aria-label="Products">
+  {% for p in products %}
+  <article class="product" data-id="{{ p.id }}">
+    <div class="art"><svg role="img" aria-label="{{ p.title }}"><use href="#art-{{ p.art }}"/></svg></div>
+    <div class="product-body">
+      <span class="brand-tag">{{ p.brand }}</span>
+      <h3>{{ p.name }}</h3>
+      <p class="tagline">{{ p.tagline }}</p>
+      <div class="chips">{% for d in p.details %}<span class="chip">{{ d }}</span>{% endfor %}</div>
+      <div class="buy"><span class="price" data-price="{{ p.price_minor }}"></span><span class="ctl"></span></div>
+    </div>
+  </article>
+  {% endfor %}
+</section>
+<div class="cartbar" id="cartbar" hidden>
+  <span id="cartsum"></span>
+  <a class="btn primary" href="/checkout/">Go to checkout</a>
+</div>
+{{ products|json_script:"products-data" }}
+{% endblock %}
+{% block scripts %}
+<script>
+const PRODUCTS = JSON.parse($("#products-data").textContent), MAX = {{ max_qty }};
+const byId = Object.fromEntries(PRODUCTS.map(p => [p.id, p]));
+document.querySelectorAll(".price").forEach(e => e.textContent = money(+e.dataset.price));
+function paint() {
+  document.querySelectorAll(".product").forEach(card => {
+    const id = card.dataset.id, q = Cart.qty(id), ctl = $(".ctl", card);
+    ctl.innerHTML = q
+      ? `<span class="stepper"><button data-d="-1" aria-label="Remove one">&minus;</button><span>${q}</span><button data-d="1" aria-label="Add one" ${q >= MAX ? "disabled" : ""}>+</button></span>`
+      : `<button class="btn primary" data-d="1">Add to cart</button>`;
+  });
+  const items = Cart.items(), n = Cart.count();
+  const total = items.reduce((s, i) => s + (byId[i.id] ? byId[i.id].price_minor * i.qty : 0), 0);
+  $("#cartbar").hidden = !n;
+  $("#cartsum").innerHTML = `<b>${n}</b> item${n === 1 ? "" : "s"} in your cart &middot; <b>${money(total)}</b>`;
+}
+$("#products").addEventListener("click", e => {
+  const b = e.target.closest("button[data-d]"); if (!b) return;
+  const id = b.closest(".product").dataset.id, q = Cart.qty(id) + +b.dataset.d;
+  Cart.set(id, q, MAX);
+  if (+b.dataset.d > 0 && q === 1) toast(byId[id].title + " added to cart");
+});
+document.addEventListener("cart:change", paint);
+whoami(false);
+paint();
+</script>
+{% endblock %}

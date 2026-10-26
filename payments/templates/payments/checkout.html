@@ -1,0 +1,176 @@
+{% extends "payments/base.html" %}
+{% block title %}Checkout{% endblock %}
+{% block page %}checkout{% endblock %}
+{% block content %}
+<h1 class="page-title">Checkout</h1>
+<ol class="steps" id="steps">
+  <li class="active" data-s="1"><b>1</b>Cart</li><li data-s="2"><b>2</b>Payment</li><li data-s="3"><b>3</b>Confirmation</li>
+</ol>
+
+<div id="empty" class="card empty" hidden>
+  <p>Your cart is empty.</p><a class="btn primary" href="/">Browse the shop</a>
+</div>
+
+<div id="main" class="checkout-grid" hidden>
+  <section class="card"><h2>Your cart</h2><div id="lines"></div></section>
+  <aside class="card summary">
+    <h2>Order summary</h2>
+    <dl><dt>Subtotal</dt><dd id="sub"></dd><dt>Shipping</dt><dd>Free</dd></dl>
+    <dl class="total"><dt>Total</dt><dd id="total"></dd></dl>
+    <button class="btn primary block" id="go">Continue to payment</button>
+    <div id="pay-panel" hidden>
+      <div id="element"></div>
+      <button class="btn primary block" id="paybtn">Pay <span id="paytotal"></span></button>
+    </div>
+    <div class="status" id="status" role="status"></div>
+    <p class="muted" style="margin-top:14px;font-size:13px">Test card <code>4242 4242 4242 4242</code>, any future date, any CVC. Declined card: <code>4000 0000 0000 0002</code>.</p>
+    <details class="devtools" id="dev" hidden>
+      <summary>Developer tools</summary>
+      <button class="btn sm secondary" id="replay">Send same request again</button>
+      <pre id="devout"></pre>
+    </details>
+  </aside>
+</div>
+
+<div id="done" class="card done" hidden></div>
+{{ products|json_script:"products-data" }}
+{% endblock %}
+{% block scripts %}
+<script src="https://js.stripe.com/v3/"></script>
+<script>
+const PRODUCTS = JSON.parse($("#products-data").textContent), MAX = {{ max_qty }};
+const byId = Object.fromEntries(PRODUCTS.map(p => [p.id, p]));
+const stripe = Stripe("{{ publishable_key }}");
+let locked = false, elements = null;
+
+const status = (text, cls, spin) => {
+  const s = $("#status"); s.className = "status " + (cls || "");
+  s.innerHTML = text ? (spin ? '<span class="spin"></span>' : "") + `<span>${esc(text)}</span>` : "";
+};
+const step = n => document.querySelectorAll("#steps li").forEach(li => {
+  const i = +li.dataset.s; li.className = i < n ? "done" : i === n ? "active" : "";
+});
+
+// One checkout_id per distinct cart: surviving a refresh makes the request idempotent,
+// changing the cart gives a new id (the server would answer 409 for a changed payload).
+function checkoutId() {
+  const sig = JSON.stringify(Cart.items().sort((a, b) => a.id.localeCompare(b.id)));
+  try {
+    const saved = JSON.parse(sessionStorage.getItem("checkout") || "null");
+    if (saved && saved.sig === sig) return saved.id;
+    const id = crypto.randomUUID(); sessionStorage.setItem("checkout", JSON.stringify({sig, id})); return id;
+  } catch (e) { return crypto.randomUUID(); }
+}
+const total = () => Cart.items().reduce((s, i) => s + (byId[i.id] ? byId[i.id].price_minor * i.qty : 0), 0);
+
+function paint() {
+  const items = Cart.items().filter(i => byId[i.id]);
+  $("#empty").hidden = !!items.length || locked; $("#main").hidden = !items.length && !locked;
+  if (locked) return;
+  $("#lines").innerHTML = items.map(i => {
+    const p = byId[i.id];
+    return `<div class="line" data-id="${esc(p.id)}">
+      <div class="art"><svg><use href="#art-${esc(p.art)}"/></svg></div>
+      <div><div class="name">${esc(p.title)}</div><div class="unit">${esc(p.brand)} &middot; ${money(p.price_minor)} each</div></div>
+      <div class="right"><span class="stepper"><button data-d="-1" aria-label="Remove one">&minus;</button><span>${i.qty}</span><button data-d="1" aria-label="Add one" ${i.qty >= MAX ? "disabled" : ""}>+</button></span>
+        <span class="sum">${money(p.price_minor * i.qty)}</span><button class="linkbtn" data-rm>Remove</button></div></div>`;
+  }).join("");
+  $("#sub").textContent = $("#total").textContent = money(total());
+}
+$("#lines").addEventListener("click", e => {
+  if (locked) return;
+  const row = e.target.closest(".line"); if (!row) return;
+  const id = row.dataset.id, b = e.target.closest("button");
+  if (!b) return;
+  Cart.set(id, b.hasAttribute("data-rm") ? 0 : Cart.qty(id) + +b.dataset.d, MAX);
+});
+document.addEventListener("cart:change", paint);
+
+const stripeAppearance = () => ({theme: document.documentElement.dataset.theme === "dark" ? "night" : "stripe",
+  variables: {colorPrimary: getComputedStyle(document.documentElement).getPropertyValue("--accent").trim() || "#c8f03c", borderRadius: "10px"}});
+
+async function start(id) {
+  const r = await api("/demo/start", {method: "POST", body: JSON.stringify({checkout_id: id, items: Cart.items()})});
+  return r.json();
+}
+async function waitFor(orderId) {            // the webhook is the source of truth, not the browser
+  for (let i = 0; i < 30; i++) {
+    const s = await (await api("/v1/payments/" + orderId)).json();
+    if (s.status === "SUCCESS" || s.status === "FAILED") return s.status;
+    await sleep(1000);
+  }
+  return "EXECUTING";
+}
+// If Stripe was unreachable the server queued a retry; wait until the order leaves NOT_STARTED.
+async function waitForRetryQueue(orderId) {
+  for (let i = 0; i < 60; i++) {
+    const s = await (await api("/v1/payments/" + orderId)).json();
+    if (s.status !== "NOT_STARTED") return s.status;
+    status(`Payment provider is unreachable. Retrying in the background (${i + 1}s)...`, "", true);
+    await sleep(1000);
+  }
+  return "NOT_STARTED";
+}
+function finish(ok, order) {
+  locked = true; $("#main").hidden = true; $("#empty").hidden = true; step(3);
+  const d = $("#done"); d.hidden = false;
+  if (ok) {
+    Cart.clear(); try { sessionStorage.removeItem("checkout"); } catch (e) {}
+    d.innerHTML = `<div class="tick"><svg width="34" height="34"><use href="#i-check"/></svg></div>
+      <h1>Payment received</h1><p class="muted">${esc(order.description || "")}</p>
+      <p><b>${money(order.amount_minor)}</b> paid to <code>${esc(order.seller_account)}</code></p>
+      <div class="actions"><a class="btn primary" href="/dashboard/">View order &amp; ledger</a><a class="btn secondary" href="/">Keep shopping</a></div>`;
+  } else {
+    d.innerHTML = `<h1>Payment failed</h1><p class="muted">Your card was not charged. Your cart is still saved.</p>
+      <div class="actions"><a class="btn primary" href="/checkout/">Try again</a><a class="btn secondary" href="/">Back to shop</a></div>`;
+    try { sessionStorage.removeItem("checkout"); } catch (e) {}
+  }
+}
+
+let current = null;
+$("#go").onclick = async () => {
+  if (!(await whoami(true))) return;
+  const id = checkoutId(); $("#go").disabled = true; status("Creating your order...", "", true);
+  let res = await start(id);
+  if (res.error) { status(res.error + " " + (res.detail || ""), "bad"); $("#go").disabled = false; return; }
+  if (res.payment_orders.some(o => o.status === "NOT_STARTED")) {
+    const st = await waitForRetryQueue(res.payment_orders[0].payment_order_id);
+    if (st === "NOT_STARTED") { status("Still retrying. Refresh this page later: your order is safe.", "bad"); return; }
+    res = await start(id);   // idempotent replay: same order, now with its client_secret
+  }
+  const order = res.payment_orders.find(o => o.client_secret);
+  if (res.payment_orders.some(o => o.status === "FAILED") || !order) {
+    status("The payment provider rejected this order. Please try again.", "bad");
+    try { sessionStorage.removeItem("checkout"); } catch (e) {}
+    $("#go").disabled = false; return;
+  }
+  current = order; locked = true;
+  $("#dev").hidden = false; step(2);
+  // Cart is frozen while paying: show it read-only by dropping the edit controls.
+  document.querySelectorAll(".line .right .stepper, .line .linkbtn").forEach(e => e.remove());
+  $("#go").hidden = true; $("#pay-panel").hidden = false; $("#paytotal").textContent = money(order.amount_minor);
+  elements = stripe.elements({clientSecret: order.client_secret, appearance: stripeAppearance()});
+  elements.create("payment").mount("#element");
+  status("Order created. Enter your card details.", "ok");
+  $("#devout").textContent = "order " + order.payment_order_id;
+};
+document.addEventListener("theme:change", () => { if (elements) elements.update({appearance: stripeAppearance()}); });
+
+$("#paybtn").onclick = async () => {
+  const btn = $("#paybtn"); btn.disabled = true; status("Processing payment...", "", true);
+  const {error} = await stripe.confirmPayment({elements, redirect: "if_required"});
+  if (error) { status(error.message, "bad"); btn.disabled = false; return; }
+  status("Card accepted. Waiting for Stripe's webhook to confirm...", "", true);
+  const st = await waitFor(current.payment_order_id);
+  if (st === "EXECUTING") { status("Still confirming. Check the Orders page shortly.", ""); return; }
+  finish(st === "SUCCESS", current);
+};
+$("#replay").onclick = async () => {
+  const res = await start(checkoutId());
+  $("#devout").textContent = "Replay returned the SAME order (no new PaymentIntent): " +
+    res.payment_orders.map(o => o.payment_order_id.slice(-10) + " " + o.status).join(", ");
+};
+whoami(false);
+paint();
+</script>
+{% endblock %}

@@ -1,0 +1,37 @@
+{# Product illustrations as an SVG sprite; colours come from CSS variables so they follow the theme. #}
+<svg width="0" height="0" style="position:absolute" aria-hidden="true" focusable="false">
+  <symbol id="art-racket" viewBox="0 0 240 180">
+    <g transform="rotate(-38 120 90)">
+      <rect x="146" y="80" width="86" height="20" rx="9" fill="var(--racket-grip)"/>
+      <rect x="196" y="80" width="30" height="20" rx="8" fill="var(--racket-frame)" opacity=".85"/>
+      <path d="M128 90 L148 90" stroke="var(--racket-frame)" stroke-width="9" stroke-linecap="round"/>
+      <ellipse cx="78" cy="90" rx="62" ry="50" fill="rgba(255,255,255,.05)" stroke="var(--racket-frame)" stroke-width="9"/>
+      <g stroke="var(--racket-frame)" stroke-width="1.4" opacity=".55">
+        <path d="M30 70H126M24 90H132M30 110H126M42 52H114M42 128H114"/>
+        <path d="M54 46V134M72 40V140M90 40V140M108 46V134"/>
+      </g>
+    </g>
+    <circle cx="205" cy="148" r="15" fill="#d7f23c"/>
+    <path d="M192 142c8 3 16 3 26 0M192 154c8-3 16-3 26 0" stroke="#fff" stroke-width="2" fill="none" opacity=".8"/>
+  </symbol>
+  <symbol id="art-shoes" viewBox="0 0 240 180">
+    <path d="M24 118c0-14 6-22 16-26l28-12c6-3 10-9 12-16l4-14c10 4 20 6 30 6 6 14 20 24 40 30l44 14c14 5 20 12 20 24v14H24z" fill="var(--shoe-upper)"/>
+    <path d="M96 66c12 14 30 22 50 28" stroke="var(--shoe-accent)" stroke-width="7" fill="none" stroke-linecap="round"/>
+    <path d="M60 100c24 8 56 8 86 0" stroke="var(--shoe-accent)" stroke-width="5" fill="none" stroke-linecap="round" opacity=".8"/>
+    <path d="M104 52l10 6M116 58l10 6M128 64l10 6" stroke="#8a97a8" stroke-width="3" stroke-linecap="round"/>
+    <path d="M18 132h200c4 0 6 3 6 6v6c0 8-6 14-14 14H34c-9 0-16-6-16-14z" fill="var(--shoe-sole)"/>
+    <path d="M30 148h176" stroke="rgba(0,0,0,.18)" stroke-width="3" stroke-dasharray="6 6"/>
+  </symbol>
+  <symbol id="art-shirt" viewBox="0 0 240 180">
+    <path d="M82 22l-52 22 14 44 24-8v70h96V80l24 8 14-44-52-22c-6 12-18 18-34 18S88 34 82 22z" fill="var(--shirt-main)"/>
+    <path d="M82 22c6 12 18 18 38 18s32-6 38-18l-8-3c-6 8-16 12-30 12s-24-4-30-12z" fill="var(--shirt-trim)"/>
+    <path d="M44 88l-14-44M196 88l14-44" stroke="var(--shirt-trim)" stroke-width="5" opacity=".9"/>
+    <g fill="var(--shirt-trim)" opacity=".28"><circle cx="100" cy="92" r="1.8"/><circle cx="118" cy="104" r="1.8"/><circle cx="136" cy="92" r="1.8"/><circle cx="154" cy="104" r="1.8"/><circle cx="100" cy="116" r="1.8"/><circle cx="136" cy="116" r="1.8"/><circle cx="118" cy="128" r="1.8"/><circle cx="154" cy="128" r="1.8"/></g>
+    <rect x="132" y="58" width="26" height="8" rx="4" fill="var(--shirt-trim)" opacity=".85"/>
+  </symbol>
+  <symbol id="i-cart" viewBox="0 0 24 24"><path d="M3 4h2l2.4 11h10.2L20 7H6.2" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/><circle cx="9" cy="19" r="1.5" fill="currentColor"/><circle cx="17" cy="19" r="1.5" fill="currentColor"/></symbol>
+  <symbol id="i-sun" viewBox="0 0 24 24"><circle cx="12" cy="12" r="4" fill="none" stroke="currentColor" stroke-width="1.8"/><path d="M12 2v3M12 19v3M2 12h3M19 12h3M5 5l2 2M17 17l2 2M19 5l-2 2M7 17l-2 2" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"/></symbol>
+  <symbol id="i-moon" viewBox="0 0 24 24"><path d="M20 14.5A8 8 0 019.5 4a8 8 0 1010.5 10.5z" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linejoin="round"/></symbol>
+  <symbol id="i-check" viewBox="0 0 24 24"><path d="M5 12.5l4.5 4.5L19 7.5" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"/></symbol>
+  <symbol id="i-ball" viewBox="0 0 32 32"><circle cx="16" cy="16" r="14" fill="#c8f03c"/><path d="M5 8c7 3 7 13 0 16M27 8c-7 3-7 13 0 16" fill="none" stroke="#fff" stroke-width="2"/></symbol>
+</svg>

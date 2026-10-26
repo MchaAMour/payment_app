@@ -1,0 +1,35 @@
+{% extends "payments/base.html" %}
+{% block title %}Log in{% endblock %}
+{% block page %}login{% endblock %}
+{% block content %}
+<div class="card login">
+  <h2>Log in to check out</h2>
+  <form id="f" style="margin-top:14px">
+    <div class="field"><label for="u">Username</label><input id="u" autocomplete="username" required></div>
+    <div class="field"><label for="p">Password</label><input id="p" type="password" placeholder="8+ characters" autocomplete="current-password" required></div>
+    <div class="row"><button type="submit" class="btn primary">Log in</button>{% if allow_registration %}<button type="button" id="reg" class="btn secondary">Register</button>{% endif %}</div>
+  </form>
+  <p id="msg" class="hint muted"></p>
+</div>
+{% endblock %}
+{% block scripts %}
+<script>
+const msg = $("#msg");
+const next = safeNext(new URLSearchParams(location.search).get("next") || "/checkout/");
+const creds = () => ({username: $("#u").value.trim(), password: $("#p").value});
+async function login() {
+  const r = await fetch("/auth/token", {method: "POST", headers: {"Content-Type": "application/json"}, body: JSON.stringify(creds())});
+  if (!r.ok) { msg.className = "hint bad"; msg.textContent = "Wrong username or password."; return; }
+  Auth.set(await r.json()); location.href = next;
+}
+$("#f").onsubmit = e => { e.preventDefault(); login(); };
+const reg = $("#reg");
+if (reg) reg.onclick = async () => {
+  const r = await fetch("/auth/register", {method: "POST", headers: {"Content-Type": "application/json"}, body: JSON.stringify(creds())});
+  const j = await r.json();
+  if (r.status === 201) { msg.className = "hint ok"; msg.textContent = "Account created."; login(); }
+  else { msg.className = "hint bad"; msg.textContent = j.error || "Could not register."; }
+};
+whoami(false);
+</script>
+{% endblock %}

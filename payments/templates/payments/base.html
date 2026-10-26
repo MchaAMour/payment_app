@@ -1,0 +1,35 @@
+{% load static %}<!doctype html>
+<html lang="en" data-theme="dark">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>{% block title %}Shop{% endblock %} · {{ store_name }}</title>
+<script>
+  // Set the theme before first paint so there is no white flash.
+  try { document.documentElement.dataset.theme = localStorage.getItem("theme") || "dark"; } catch (e) {}
+</script>
+<link rel="stylesheet" href="{% static 'payments/app.css' %}">
+</head>
+<body data-page="{% block page %}{% endblock %}">
+{% include "payments/_art.html" %}
+<header class="topbar"><div class="topbar-in">
+  <a class="brand" href="/"><svg><use href="#i-ball"/></svg><span>Baseline<em>Tennis</em></span></a>
+  <nav class="nav" aria-label="Main">
+    <a href="/" data-nav="store">Shop</a>
+    <a href="/dashboard/" data-nav="dashboard">Orders</a>
+  </nav>
+  <div class="tools">
+    <span class="who" id="who"></span>
+    <a href="/login/" class="btn sm secondary" id="login-link">Log in</a>
+    <button class="btn sm ghost" id="logout" hidden>Log out</button>
+    <button class="icon-btn" id="theme" aria-label="Toggle light and dark theme" title="Toggle theme"><svg><use href="#i-sun"/></svg></button>
+    <a class="cart-btn" href="/checkout/" aria-label="Cart"><svg><use href="#i-cart"/></svg><span class="badge" id="cart-badge" hidden>0</span></a>
+  </div>
+</div></header>
+<main class="page">{% block content %}{% endblock %}</main>
+<footer class="foot">Demo store, test payments only. No real money moves. Brand names are used for illustration.</footer>
+<div class="toast" id="toast" role="status" aria-live="polite"></div>
+<script src="{% static 'payments/app.js' %}"></script>
+{% block scripts %}{% endblock %}
+</body>
+</html>

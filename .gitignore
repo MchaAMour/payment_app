@@ -1,0 +1,8 @@
+.venv/
+.env
+.env.*
+!.env.example
+!.env.prod.example
+__pycache__/
+*.pyc
+staticfiles/

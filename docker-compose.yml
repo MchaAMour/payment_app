@@ -1,0 +1,87 @@
+# Local development. By default only the infrastructure starts (Postgres, Redis); the app runs
+# from your venv (see Makefile). With the `app` profile the app runs in Docker too:
+#
+#   make docker-up        # docker compose --profile app up -d --build
+#
+# The project name gives containers, network and volume distinct names (payment-demo-*),
+# so this stack cannot clash with other Compose projects on the same machine.
+name: payment-demo
+
+x-app: &app
+  build: .
+  image: payment-demo-app
+  profiles: [app]
+  env_file:
+    - path: .env
+      required: false
+  environment: &app-env
+    DB_HOST: db
+    DB_PORT: "5432"
+    CELERY_BROKER_URL: redis://redis:6379/0
+    DJANGO_ALLOWED_HOSTS: localhost,127.0.0.1,[::1],web   # `web`: webhooks from the stripe container
+
+services:
+  db:
+    image: postgres:16
+    environment:
+      POSTGRES_DB: payments
+      POSTGRES_USER: payments
+      POSTGRES_PASSWORD: payments
+    ports:
+      - "5433:5432"
+    volumes:
+      - pgdata:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U payments -d payments"]
+      interval: 3s
+      timeout: 3s
+      retries: 20
+  redis:
+    image: redis:7-alpine
+    ports:
+      - "6380:6379"
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 3s
+      timeout: 3s
+      retries: 20
+
+  migrate:
+    <<: *app
+    command: python manage.py migrate --noinput
+    depends_on:
+      db: {condition: service_healthy}
+
+  web:
+    <<: *app
+    ports:
+      - "8000:8000"
+    depends_on:
+      migrate: {condition: service_completed_successfully}
+      redis: {condition: service_healthy}
+
+  worker:
+    <<: *app
+    command: celery -A config worker -l info
+    depends_on:
+      migrate: {condition: service_completed_successfully}
+      redis: {condition: service_healthy}
+
+  # Forwards Stripe test-mode webhooks to the web container. Its signing secret must match
+  # STRIPE_WEBHOOK_SECRET in .env: `docker compose run --rm stripe listen --print-secret`.
+  stripe:
+    image: stripe/stripe-cli:latest
+    profiles: [app]
+    env_file:
+      - path: .env
+        required: false
+    entrypoint: ["/bin/sh", "-c"]
+    command:
+      - exec stripe listen --api-key "$$STRIPE_SECRET_KEY"
+        --events payment_intent.succeeded,payment_intent.payment_failed
+        --forward-to web:8000/webhooks/stripe/
+    depends_on:
+      - web
+
+volumes:
+  pgdata:

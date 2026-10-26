@@ -1,0 +1,49 @@
+{% extends "payments/base.html" %}
+{% block title %}Orders{% endblock %}
+{% block page %}dashboard{% endblock %}
+{% block content %}
+<h1 class="page-title">Orders &amp; ledger</h1>
+<p class="muted">Your payments only. Refreshes every 5 s. State changes only when Stripe's webhook arrives.</p>
+<div class="stats">
+  <div class="stat"><div class="k">Debits (system)</div><div class="v" id="s-deb">–</div></div>
+  <div class="stat"><div class="k">Credits (system)</div><div class="v" id="s-cre">–</div></div>
+  <div class="stat"><div class="k">Ledger invariant</div><div class="v" id="s-inv">–</div></div>
+</div>
+<div class="card"><h2>Your payment orders</h2><div class="tablewrap"><table id="orders"></table></div></div>
+<div class="card"><h2>Store wallets</h2><div class="tablewrap"><table id="wallets"></table></div></div>
+<div class="card"><h2>Your ledger entries (append-only)</h2><div class="tablewrap"><table id="ledger"></table></div></div>
+<div class="card" id="mm" hidden><h2>Reconciliation mismatches (staff only)</h2><div class="tablewrap"><table id="mismatches"></table></div></div>
+<div class="card" id="dl" hidden><h2>Dead letter queue (staff only)</h2><div class="tablewrap"><table id="deadletters"></table></div></div>
+{% endblock %}
+{% block scripts %}
+<script>
+const empty = (cols, text) => `<tr><td colspan="${cols}" class="muted">${text}</td></tr>`;
+async function load() {
+  const d = await (await api("/v1/dashboard")).json();
+  $("#s-deb").textContent = money(d.debits); $("#s-cre").textContent = money(d.credits);
+  $("#s-inv").innerHTML = d.balanced ? '<span class="pill ok">balanced (sum = 0)</span>' : '<span class="pill bad">IMBALANCED</span>';
+  $("#orders").innerHTML =
+    "<tr><th>Order</th><th>Items</th><th class='num'>Amount</th><th>Status</th><th>Wallet</th><th>Ledger</th></tr>" +
+    (d.orders.map(o => `<tr><td><code>${esc(o.id.slice(0, 30))}</code><span class="sub">${esc(o.seller)}</span></td>
+      <td>${esc(o.description || "–")}</td><td class="num">${money(o.amount_minor)}</td>
+      <td><span class="pill ${esc(o.status)}">${esc(o.status)}</span></td><td>${o.wallet_updated ? "✓" : "–"}</td><td>${o.ledger_updated ? "✓" : "–"}</td></tr>`).join("")
+     || empty(6, 'No payments yet. <a href="/">Visit the shop</a>.'));
+  $("#wallets").innerHTML = "<tr><th>Store</th><th class='num'>Balance</th></tr>" +
+    (d.wallets.map(w => `<tr><td>${esc(w.seller)}</td><td class="num">${money(w.balance_minor)}</td></tr>`).join("") || empty(2, "Empty"));
+  $("#ledger").innerHTML = "<tr><th>#</th><th>Account</th><th class='num'>Debit</th><th class='num'>Credit</th><th>Order</th></tr>" +
+    (d.ledger.map(e => `<tr><td>${e.id}</td><td>${esc(e.account)}</td><td class="num">${e.debit_minor ? money(e.debit_minor) : ""}</td>
+      <td class="num">${e.credit_minor ? money(e.credit_minor) : ""}</td><td><code>${esc(e.order.slice(0, 24))}</code></td></tr>`).join("") || empty(5, "Empty"));
+  if (d.mismatches) {
+    $("#mm").hidden = false;
+    $("#mismatches").innerHTML = "<tr><th>Bucket</th><th>Order</th><th>Detail</th></tr>" +
+      (d.mismatches.map(m => `<tr><td>${esc(m.bucket)}</td><td><code>${esc(m.order.slice(0, 24))}</code></td><td>${esc(m.detail)}</td></tr>`).join("") || empty(3, "None."));
+  }
+  if (d.dead_letters) {
+    $("#dl").hidden = false;
+    $("#deadletters").innerHTML = "<tr><th>Reason</th><th>Order</th><th>Attempts</th><th>Error</th></tr>" +
+      (d.dead_letters.map(x => `<tr><td>${esc(x.reason)}</td><td><code>${esc(x.order.slice(0, 24))}</code></td><td>${x.attempts}</td><td>${esc(x.error)}</td></tr>`).join("") || empty(4, "Empty."));
+  }
+}
+whoami(true).then(me => { if (me) { load(); setInterval(load, 5000); } });
+</script>
+{% endblock %}

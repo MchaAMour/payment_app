@@ -1,0 +1,45 @@
+name: CI
+on:
+  push:
+    branches: [main]
+  pull_request:
+permissions:
+  contents: read
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    services:
+      postgres:
+        image: postgres:16
+        env: {POSTGRES_DB: payments, POSTGRES_USER: payments, POSTGRES_PASSWORD: payments}
+        ports: ["5432:5432"]
+        options: >-
+          --health-cmd "pg_isready -U payments -d payments"
+          --health-interval 3s --health-timeout 3s --health-retries 20
+      redis:
+        image: redis:7-alpine
+        ports: ["6379:6379"]
+    env:
+      DB_HOST: localhost
+      DB_PORT: "5432"
+      CELERY_BROKER_URL: redis://localhost:6379/0
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with: {python-version: "3.13", cache: pip}
+      - run: pip install -r requirements.txt pyflakes
+      - run: python -m pyflakes payments config
+      - run: python manage.py makemigrations --check --dry-run
+      - run: python manage.py test payments
+
+  docker:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - run: docker build -t payment-demo .
+      - name: Django deploy checks
+        run: >
+          docker run --rm -e DJANGO_DEBUG=0 -e DJANGO_ALLOWED_HOSTS=example.com
+          -e DJANGO_SECRET_KEY="ci-$(openssl rand -hex 32)"
+          payment-demo python manage.py check --deploy --fail-level ERROR

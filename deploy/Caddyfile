@@ -1,0 +1,6 @@
+# Caddy obtains and renews the TLS certificate for $DOMAIN automatically
+# (DNS for the domain must point at this server, ports 80 and 443 must be open).
+{$DOMAIN} {
+	encode gzip
+	reverse_proxy web:8000
+}
