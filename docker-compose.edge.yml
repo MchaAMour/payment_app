@@ -1,0 +1,22 @@
+# Run the production stack behind a reverse proxy that already owns ports 80/443 (for example a
+# shared Caddy serving several apps), instead of the bundled Caddy:
+#
+#   docker compose --env-file .env.prod -f docker-compose.prod.yml -f docker-compose.edge.yml up -d --build
+#
+# `web` joins the proxy's existing Docker network as `payment-demo-web`; nothing is published on the
+# host. Set EDGE_NETWORK in .env.prod to that network's name. Route your domain to
+# `payment-demo-web:8000` in the proxy (see docs/DEPLOY.md).
+services:
+  caddy:
+    profiles: [standalone]  # disabled: the shared proxy terminates TLS
+
+  web:
+    networks:
+      default: {}
+      edge:
+        aliases: [payment-demo-web]
+
+networks:
+  edge:
+    name: ${EDGE_NETWORK:-edge}
+    external: true

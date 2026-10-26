@@ -49,6 +49,29 @@ Tested locally: the Docker image builds, `manage.py check --deploy` runs inside 
    - In Stripe, the webhook endpoint's delivery log shows `200` responses.
    - `docker compose ... logs worker` shows `ready`.
 
+## Behind an existing reverse proxy
+
+If the server already runs a proxy on ports 80/443 (for example one Caddy serving several apps), skip the
+bundled Caddy and attach `web` to the proxy's Docker network instead:
+
+1. In `.env.prod`, set `EDGE_NETWORK` to the proxy's network name (`docker network ls`), plus the usual values.
+2. Start the stack without Caddy and without host ports:
+   ```bash
+   make edge-up        # docker-compose.prod.yml + docker-compose.edge.yml
+   ```
+3. Add a site to the proxy that points at the `payment-demo-web` alias, e.g. for Caddy:
+   ```
+   payments.example.com {
+       encode gzip
+       reverse_proxy payment-demo-web:8000
+   }
+   ```
+   Validate before reloading so a mistake cannot affect the proxy's other sites:
+   `caddy validate --config /etc/caddy/Caddyfile && caddy reload --config /etc/caddy/Caddyfile`.
+
+The proxy must send `X-Forwarded-Proto` (Caddy does by default); `DJANGO_BEHIND_PROXY=1` is already set by
+the compose file. Steps 4 to 6 above (webhook, accounts, verification) are the same. Use `make edge-down` to stop.
+
 ## Operating it
 
 ```bash

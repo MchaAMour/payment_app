@@ -1,7 +1,7 @@
 PY ?= .venv/bin/python
 CELERY ?= .venv/bin/celery
 
-.PHONY: help setup dev infra migrate run worker listen test lint seed reset-db docker-up docker-down docker-logs docker-test docker-seed prod-up prod-down
+.PHONY: help setup dev infra migrate run worker listen test lint seed reset-db docker-up docker-down docker-logs docker-test docker-seed prod-up prod-down edge-up edge-down
 
 help:            ## list targets
 	@grep -E '^[a-z-]+:.*##' Makefile | sed 's/:.*##/\t/'
@@ -60,3 +60,11 @@ prod-up:         ## deploy with docker-compose.prod.yml (needs .env.prod)
 
 prod-down:       ## stop the production stack
 	docker compose --env-file .env.prod -f docker-compose.prod.yml down
+
+EDGE = docker compose --env-file .env.prod -f docker-compose.prod.yml -f docker-compose.edge.yml
+
+edge-up:         ## deploy behind an existing reverse proxy (docker-compose.edge.yml, needs .env.prod)
+	$(EDGE) up -d --build
+
+edge-down:       ## stop the stack started with edge-up
+	$(EDGE) down
