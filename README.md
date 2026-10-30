@@ -48,6 +48,7 @@ Prerequisites: Python 3.12+, Docker, the [Stripe CLI](https://github.com/stripe/
 make setup                      # venv + dependencies
 cp .env.example .env            # add your Stripe TEST keys (or keep them in ../../.env, also read)
 stripe login
+make migrate                    # start infrastructure and create database tables
 make seed                       # demo buyer + staff accounts (prints a generated password once)
 make dev                        # Postgres, Redis, migrations, web, Celery worker, Stripe listener
 ```

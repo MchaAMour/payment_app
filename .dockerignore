@@ -8,3 +8,33 @@ __pycache__
 *.pyc
 staticfiles
 docs
+
+# Local credentials, runtime data, and tool state
+.env-*
+*.pem
+*.key
+*.p12
+*.pfx
+*.sqlite3
+*.sqlite3-*
+*.sql
+*.dump
+*.log
+*.bak
+*.swp
+*~
+.DS_Store
+.pytest_cache/
+.ruff_cache/
+.coverage
+htmlcov/
+media/
+.agents/
+.codex/
+.aws/
+.git-history/
+
+# Private working notes (keep these rules in version control)
+*.private.md
+/demo.md
+/docs/design-guide.md
